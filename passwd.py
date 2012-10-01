@@ -17,7 +17,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship, backref
 from sqlalchemy.orm.exc import NoResultFound
 # UUID for PostgreSQL
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, INET
 
 ##########
 # Models #
@@ -47,13 +47,28 @@ class Token(Base):
     __tablename__ = 'tokens'
 
     id = Column(Integer, primary_key=True)
-    #token = Column(String, nullable=False)
     token = Column(UUID, nullable=False)
     ts = Column(DateTime, nullable=False)
     user_id = Column(Integer, ForeignKey('users.id'))
 
     def __repr__(self):
         return "<Token('%s')>" % self.token
+
+
+class Group(Base):
+    __tablename__ = 'group'
+    
+    username = Column(String(32), primary_key=True)
+    member_of = Column(String(64))
+
+
+class Log(Base):
+    __tablename__ = 'log'
+
+    uname = Column(String(32))
+    ts = Column(DateTime)
+    uri = Column(Text())
+    ip = Column(INET)
 
 Base.metadata.create_all(engine)
 Session = sessionmaker(bind=engine)
@@ -70,6 +85,7 @@ class PasswordResetForm(Form):
         validators.Required()
     ])
     submit = SubmitField('Reset my password')
+
 
 class SetPasswordForm(Form):
     """
