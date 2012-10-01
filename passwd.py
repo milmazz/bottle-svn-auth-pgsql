@@ -129,15 +129,15 @@ dirname = os.path.dirname(__file__)
 
 @route('/js/<filename>')
 def js_static(filename):
-	return static_file(filename, root=os.path.join(dirname, 'js'))
+	return static_file(filename, root=os.path.join(dirname, 'bootstrap', 'js'))
 
 @route('/img/<filename>')
 def img_static(filename):
-	return static_file(filename, root=os.path.join(dirname, 'img'))
+	return static_file(filename, root=os.path.join(dirname, 'bootstrap', 'img'))
 
 @route('/css/<filename>')
 def css_static(filename):
-	return static_file(filename, root=os.path.join(dirname, 'css'))
+	return static_file(filename, root=os.path.join(dirname, 'bootstrap', 'css'))
 
 @route('/password_reset')
 def password_reset_form():
