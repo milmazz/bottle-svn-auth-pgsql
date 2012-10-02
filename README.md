@@ -12,8 +12,9 @@ Dependencies
 
 Encrypted passwords
 -------------------
-If you don't want to bother creating the database tables please run first passwd.py, and then:
+If you don't want to bother creating the database tables please run first `passwd.py`, and then:
 
+```plpgsql
 CREATE EXTENSION pgcrypto;
 
 CREATE OR REPLACE FUNCTION trg_crypt_users_password() RETURNS TRIGGER AS
@@ -29,3 +30,4 @@ LANGUAGE 'plpgsql';
 CREATE TRIGGER trg_crypt_users_password
 	BEFORE INSERT OR UPDATE OF password ON users
 	FOR EACH ROW EXECUTE PROCEDURE trg_crypt_users_password();
+```
