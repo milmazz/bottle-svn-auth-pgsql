@@ -6,13 +6,13 @@ import psycopg2
 import smtplib
 
 from bottle import Bottle, route, template, request, static_file, \
-                   jinja2_template as template
 from wtforms import Form, TextField, PasswordField, HiddenField, \
                     SubmitField, validators
 from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from sqlalchemy import create_engine, Column, Integer, String, \
                        DateTime, and_, ForeignKey
+                       DateTime, Text, and_, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base 
 from sqlalchemy.orm import sessionmaker, relationship, backref
 from sqlalchemy.orm.exc import NoResultFound
@@ -22,7 +22,6 @@ from sqlalchemy.dialects.postgresql import UUID, INET
 ##########
 # Models #
 ##########
-engine = create_engine("postgresql+psycopg2://svn_user:svn_pass@/svn_db?host=/var/run/postgresql")
 
 Base = declarative_base()
 
@@ -65,6 +64,7 @@ class Group(Base):
 class Log(Base):
     __tablename__ = 'log'
 
+    id = Column(Integer, primary_key=True)
     uname = Column(String(32))
     ts = Column(DateTime)
     uri = Column(Text())
@@ -107,10 +107,15 @@ class SetPasswordForm(Form):
 def send_email(user, passwd, recipient, subject, msg):
 	"""
 	Send an email trought GMail
+    """
+    Send an email trought GMail
 
 	user: The GMail username, as a string
 	passwd: The GMail password, as a string
 	recipient: The email address to send the message
+    user: The GMail username, as a string
+    passwd: The GMail password, as a string
+    recipient: The email address to send the message
     subject: The email subject
 	msg: The message
 	"""
@@ -127,6 +132,21 @@ def send_email(user, passwd, recipient, subject, msg):
 
 	session.sendmail(user, recipient, message.as_string())
 	session.quit()
+    msg: The message
+    """
+    # Initialize SMTP Server
+    session = smtplib.SMTP('smtp.gmail.com', 587)
+    session.starttls()
+    session.login(user, passwd)
+
+    # Sending email
+    message = MIMEText(msg, _charset='utf-8')
+    message['Subject'] = subject
+    message['From'] = user
+    message['To'] = recipient
+
+    session.sendmail(user, recipient, message.as_string())
+    session.quit()
 
 #############
 # CONF SMTP #
@@ -146,14 +166,17 @@ dirname = os.path.dirname(__file__)
 @route('/js/<filename>')
 def js_static(filename):
 	return static_file(filename, root=os.path.join(dirname, 'bootstrap', 'js'))
+	return static_file(filename, root=os.path.join(dirname, 'js'))
 
 @route('/img/<filename>')
 def img_static(filename):
 	return static_file(filename, root=os.path.join(dirname, 'bootstrap', 'img'))
+	return static_file(filename, root=os.path.join(dirname, 'img'))
 
 @route('/css/<filename>')
 def css_static(filename):
 	return static_file(filename, root=os.path.join(dirname, 'bootstrap', 'css'))
+	return static_file(filename, root=os.path.join(dirname, 'css'))
 
 @route('/password_reset')
 def password_reset_form():
@@ -168,6 +191,8 @@ def password_reset():
     """
     Sending instructions to recover password to username email if exist in users's
     database 
+    Sending instructions to recover password to username email
+    if exist in users's database 
     """
     form = PasswordResetForm(request.forms)
     if form.validate():
@@ -189,6 +214,9 @@ def password_reset():
             subject = "Password reset"
 			link = ''.join([local_cfg["site_url"], '/reset?username=%s&token=%s' % (username, token)])
             tpl = template('password_reset_email', link=link, username=user.full_name, site_team=local_cfg["site_team"])
+            link = ''.join([local_cfg["site_url"], '/reset?username=%s&token=%s' % (username, token)])
+            tpl = template('password_reset_email', link=link, username=user.full_name,
+                            site_team=local_cfg["site_team"])
 
             send_email(email_user, email_pass, user.email, subject, tpl)
 
@@ -241,6 +269,8 @@ def password_reset_confirm():
 
             tpl = template('password_reset_complete_email', username=user.full_name, site_team=local_cfg["site_team"])
 )
+            tpl = template('password_reset_complete_email', username=user.full_name,
+                            site_team=local_cfg["site_team"])
 
             send_email(email_user, email_pass, user.email, subject, tpl)
 
