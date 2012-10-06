@@ -6,6 +6,7 @@ import psycopg2
 import smtplib
 
 from bottle import Bottle, route, template, request, static_file, \
+                   jinja2_template as template
 from wtforms import Form, TextField, PasswordField, HiddenField, \
                     SubmitField, validators
 from datetime import datetime, timedelta
