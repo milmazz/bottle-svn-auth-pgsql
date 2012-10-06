@@ -22,6 +22,7 @@ from sqlalchemy.dialects.postgresql import UUID, INET
 ##########
 # Models #
 ##########
+engine = create_engine("postgresql+psycopg2://svn_user:svn_pass@/subversion")
 
 Base = declarative_base()
 
