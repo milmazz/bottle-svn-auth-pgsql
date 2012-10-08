@@ -215,18 +215,20 @@ def password_reset_confirm_form(db):
 
     The token must exist in database and be valid (<1 day)
     """
-    token = request.query.token
-    username = request.query.username
-
     try:
+        username = request.query.username
+        token = uuid.UUID(request.query.token)
+
         token = db.query(Token).join(User).filter(and_(User.username==username,
-                                                    Token.token==token)).one()
+                                                    Token.token==str(token))).one()
         
         if datetime.now() <= token.ts + timedelta(days=1):
             form = SetPasswordForm(request.forms, username=username)
             return template('password_reset_confirm', form=form, error=False)
         else:
             return template('password_reset_confirm', error=True)
+    except ValueError, e:
+        return template('password_reset_confirm', error=True)
     except NoResultFound, e:
         return template('password_reset_confirm',  error=True)
 
