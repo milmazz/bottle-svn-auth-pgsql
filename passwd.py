@@ -5,8 +5,9 @@ import uuid
 import psycopg2
 import smtplib
 
-from bottle import Bottle, route, template, request, static_file, \
+from bottle import Bottle, request, static_file, \
                    jinja2_template as template
+from bottle.ext import sqlalchemy
 from wtforms import Form, TextField, PasswordField, HiddenField, \
                     SubmitField, validators
 from datetime import datetime, timedelta
@@ -14,7 +15,7 @@ from email.mime.text import MIMEText
 from sqlalchemy import create_engine, Column, Integer, String, \
                        DateTime, Text, and_, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base 
-from sqlalchemy.orm import sessionmaker, relationship, backref
+from sqlalchemy.orm import relationship, backref
 from sqlalchemy.orm.exc import NoResultFound
 # UUID for PostgreSQL
 from sqlalchemy.dialects.postgresql import UUID, INET
@@ -22,9 +23,20 @@ from sqlalchemy.dialects.postgresql import UUID, INET
 ##########
 # Models #
 ##########
+Base = declarative_base()
 engine = create_engine("postgresql+psycopg2://svn_user:svn_pass@/subversion")
 
-Base = declarative_base()
+app = Bottle()
+plugin = sqlalchemy.Plugin(
+    engine,
+    Base.metadata,
+    keyword='db',
+    create=True,
+    commit=True,
+    use_kwargs=False
+)
+
+app.install(plugin)
 
 class User(Base):
     __tablename__ = 'users'
@@ -70,9 +82,6 @@ class Log(Base):
     ts = Column(DateTime)
     uri = Column(Text())
     ip = Column(INET)
-
-Base.metadata.create_all(engine)
-Session = sessionmaker(bind=engine)
 
 #########
 # Forms #
@@ -144,19 +153,19 @@ local_cfg = {
 ################
 dirname = os.path.dirname(__file__)
 
-@route('/js/<filename>')
+@app.route('/js/<filename>')
 def js_static(filename):
 	return static_file(filename, root=os.path.join(dirname, 'js'))
 
-@route('/img/<filename>')
+@app.route('/img/<filename>')
 def img_static(filename):
 	return static_file(filename, root=os.path.join(dirname, 'img'))
 
-@route('/css/<filename>')
+@app.route('/css/<filename>')
 def css_static(filename):
 	return static_file(filename, root=os.path.join(dirname, 'css'))
 
-@route('/password_reset')
+@app.route('/password_reset')
 def password_reset_form():
     """
     Show the username form for reset password.
@@ -164,8 +173,8 @@ def password_reset_form():
     form = PasswordResetForm(request.forms)
     return template('password_reset_form', form=form)
 
-@route('/password_reset', method='POST')
-def password_reset():
+@app.route('/password_reset', method='POST')
+def password_reset(db):
     """
     Sending instructions to recover password to username email
     if exist in users's database 
@@ -174,15 +183,12 @@ def password_reset():
     if form.validate():
         # Checking if the username exist in user's database
         username = form.username.data
-        session = Session()
         try:
-            user = session.query(User).filter_by(username=username).one()
-            session.commit()
+            user = db.query(User).filter_by(username=username).one()
 
             token = str(uuid.uuid4())
             user_token = Token(token=token, ts=datetime.now(), user_id=user.id)
-            session.add(user_token)
-            session.commit()
+            db.add(user_token)
 
             # Sending email with instructions for recover password
             email_user = local_cfg["smtp_from"] 
@@ -199,8 +205,8 @@ def password_reset():
             return template('password_reset_form', form=form, invalid=True)
     return template('password_reset_form', form=form)
 
-@route('/reset')
-def password_reset_confirm_form():
+@app.route('/reset')
+def password_reset_confirm_form(db):
     """
     Show the form to recover password
 
@@ -212,12 +218,10 @@ def password_reset_confirm_form():
     token = request.query.token
     username = request.query.username
 
-    session = Session()
     try:
-        token = session.query(Token).join(User).filter(and_(User.username==username,
+        token = db.query(Token).join(User).filter(and_(User.username==username,
                                                     Token.token==token)).one()
         
-        session.commit()
         if datetime.now() <= token.ts + timedelta(days=1):
             form = SetPasswordForm(request.forms, username=username)
             return template('password_reset_confirm', form=form, error=False)
@@ -226,15 +230,13 @@ def password_reset_confirm_form():
     except NoResultFound, e:
         return template('password_reset_confirm',  error=True)
 
-@route('/reset', method='POST')
-def password_reset_confirm():
+@app.route('/reset', method='POST')
+def password_reset_confirm(db):
     form = SetPasswordForm(request.forms)
     if form.validate():
-        session = Session()
         try:
-            user = session.query(User).filter_by(username=form.username.data).one()
+            user = db.query(User).filter_by(username=form.username.data).one()
             user.password = form.new_pass.data
-            session.commit()
 
             # Email
             email_user = local_cfg["smtp_from"] 
